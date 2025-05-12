@@ -1,0 +1,7 @@
+gradio
+requests
+python-dotenv
+
+langchain
+langchain[openai]
+openai
