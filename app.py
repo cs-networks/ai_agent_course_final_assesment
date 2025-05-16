@@ -3,6 +3,10 @@ import gradio as gr
 import requests
 import inspect
 import pandas as pd
+from core_agent import AIAgent
+from langchain_core.messages import HumanMessage
+
+import tempfile
 
 # (Keep Constants as is)
 # --- Constants ---
@@ -11,13 +15,67 @@ DEFAULT_API_URL = "https://agents-course-unit4-scoring.hf.space"
 # --- Basic Agent Definition ---
 # ----- THIS IS WERE YOU CAN BUILD WHAT YOU WANT ------
 class BasicAgent:
+    """A langgraph agent."""
     def __init__(self):
         print("BasicAgent initialized.")
-    def __call__(self, question: str) -> str:
+        api_key = os.getenv("OPENAI_API_KEY")
+        #model_name = "gpt-4.1-nano-2025-04-14"
+        model_name = "gpt-4o"
+
+        # Agent initialisieren
+        agent = AIAgent(api_key=api_key,
+                        model_name=model_name,
+                        system_prompt_file_name="system_prompt.txt")
+
+        self.graph = agent.build_graph()
+
+    def __call__(self, question: str, task_id: str = None, file_name: str = None) -> str:
         print(f"Agent received question (first 50 chars): {question[:50]}...")
-        fixed_answer = "This is a default answer."
-        print(f"Agent returning fixed answer: {fixed_answer}")
-        return fixed_answer
+
+        if task_id:
+            print(f"Task ID: {task_id}")
+        if file_name:
+            print(f"File Name: {file_name}")
+
+            #downlaod the file
+            try:
+                file_url = f"https://agents-course-unit4-scoring.hf.space/files/{task_id}"
+                response = requests.get(file_url, timeout=15)
+                response.raise_for_status()
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    temp_file.write(response.content)
+                    temp_file_path = temp_file.name
+                print(f"File downloaded to: {temp_file_path}")
+                question = f"{question} The file is located at {temp_file_path}."
+            except requests.exceptions.RequestException as e:
+                print(f"Error downloading file: {e}")
+                return f"Error downloading file: {e}"
+            except Exception as e:
+                print(f"An unexpected error occurred while downloading the file: {e}")
+                return f"An unexpected error occurred while downloading the file: {e}"
+
+        # Wrap the question in a HumanMessage from langchain_core
+        messages = [HumanMessage(content=question)]
+        messages = self.graph.invoke({"messages": messages},
+                                     config={"recursion_limit": 50})
+        answer = messages['messages'][-1].content
+
+        # Find the index of "FINAL ANSWER:" and slice from there
+        idx = answer.find("FINAL ANSWER:")
+        if idx != -1:
+            result = answer[idx:].strip()
+            # Remove any leading or trailing whitespace
+            result = result.strip()
+        # If "FINAL ANSWER:" is not found, use the entire answer
+        # (this is a fallback, but ideally we should always have "FINAL ANSWER:")
+        else:
+            result = answer
+
+        print(f"Answer: {result[:50]}...")
+        print("" + "*"*80)
+
+
+        return result[14:]
 
 def run_and_submit_all( profile: gr.OAuthProfile | None):
     """
@@ -74,13 +132,16 @@ def run_and_submit_all( profile: gr.OAuthProfile | None):
     answers_payload = []
     print(f"Running agent on {len(questions_data)} questions...")
     for item in questions_data:
+        print("" + "#"*80)
+        print(f"Processing item: {item}")
+        print("" + "#"*80)
         task_id = item.get("task_id")
         question_text = item.get("question")
         if not task_id or question_text is None:
             print(f"Skipping item with missing task_id or question: {item}")
             continue
         try:
-            submitted_answer = agent(question_text)
+            submitted_answer = agent(question_text, task_id=task_id, file_name=item.get("file_name"))
             answers_payload.append({"task_id": task_id, "submitted_answer": submitted_answer})
             results_log.append({"Task ID": task_id, "Question": question_text, "Submitted Answer": submitted_answer})
         except Exception as e:
@@ -91,7 +152,7 @@ def run_and_submit_all( profile: gr.OAuthProfile | None):
         print("Agent did not produce any answers to submit.")
         return "Agent did not produce any answers to submit.", pd.DataFrame(results_log)
 
-    # 4. Prepare Submission 
+    # 4. Prepare Submission
     submission_data = {"username": username.strip(), "agent_code": agent_code, "answers": answers_payload}
     status_update = f"Agent finished. Submitting {len(answers_payload)} answers for user '{username}'..."
     print(status_update)

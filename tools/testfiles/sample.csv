@@ -1,0 +1,11 @@
+CustomerID,Name,Age,Country,PurchaseAmount,IsMember
+1001,Alice,56,USA,48.39,False
+1002,Bob,69,Canada,436.48,False
+1003,Charlie,46,UK,309.19,False
+1004,David,32,Germany,360.55,True
+1005,Eve,60,France,30.39,False
+1006,Frank,25,Italy,486.3,True
+1007,Grace,38,Spain,420.28,True
+1008,Heidi,56,Netherlands,122.48,True
+1009,Ivan,36,Sweden,107.82,True
+1010,Judy,40,Norway,108.58,True
