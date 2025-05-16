@@ -35,6 +35,7 @@ from tools.math_tools import (
     median_tool,
 )
 from tools.tavily_search_tool import tavily_search_tool
+from tools.arxiv_search_tool import arxiv_search_tool
 from tools.defunct_countries_tool import defunct_countries_tool
 
 from tools.extract_text_from_image_tool import extract_text_from_image_tool
@@ -113,6 +114,7 @@ class AIAgent:
         self.tools = [  defunct_countries_tool,
                         time_tool, download_tool, wiki_page_tool, wiki_search_tool,
                         tavily_search_tool,
+                        arxiv_search_tool,
                         extract_text_from_image_tool,
                         extract_audio_from_youtube_tool,
                         extract_text_from_audio_tool,
